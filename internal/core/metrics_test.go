@@ -77,5 +77,6 @@ func TestMetrics(t *testing.T) {
 		"rtsps_sessions{state=\"idle\"}":    "0",
 		"rtsps_sessions{state=\"publish\"}": "0",
 		"rtsps_sessions{state=\"read\"}":    "0",
+		"path_state{path=\"~^.*$\"}":        "1",
 	}, vals)
 }
