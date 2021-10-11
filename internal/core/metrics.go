@@ -7,14 +7,12 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
-	"time"
 
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
 
-func formatMetric(key string, value int64, nowUnix int64) string {
-	return key + " " + strconv.FormatInt(value, 10) + " " +
-		strconv.FormatInt(nowUnix, 10) + "\n"
+func formatMetric(key string, value int64) string {
+	return key + " " + strconv.FormatInt(value, 10) + "\n"
 }
 
 type metricsPathManager interface {
@@ -84,7 +82,6 @@ func (m *metrics) run() {
 }
 
 func (m *metrics) onMetrics(w http.ResponseWriter, req *http.Request) {
-	nowUnix := time.Now().UnixNano() / 1000000
 
 	out := ""
 
@@ -95,16 +92,18 @@ func (m *metrics) onMetrics(w http.ResponseWriter, req *http.Request) {
 
 		for _, p := range res.Data.Items {
 			if p.SourceReady {
+				out += formatMetric("path_state{path=\""+p.ConfName+"\"}", 1)
 				readyCount++
 			} else {
+				out += formatMetric("path_state{path=\""+p.ConfName+"\"}", 0)
 				notReadyCount++
 			}
 		}
 
 		out += formatMetric("paths{state=\"ready\"}",
-			readyCount, nowUnix)
+			readyCount)
 		out += formatMetric("paths{state=\"notReady\"}",
-			notReadyCount, nowUnix)
+			notReadyCount)
 	}
 
 	if !interfaceIsEmpty(m.rtspServer) {
@@ -126,11 +125,11 @@ func (m *metrics) onMetrics(w http.ResponseWriter, req *http.Request) {
 			}
 
 			out += formatMetric("rtsp_sessions{state=\"idle\"}",
-				idleCount, nowUnix)
+				idleCount)
 			out += formatMetric("rtsp_sessions{state=\"read\"}",
-				readCount, nowUnix)
+				readCount)
 			out += formatMetric("rtsp_sessions{state=\"publish\"}",
-				publishCount, nowUnix)
+				publishCount)
 		}
 	}
 
@@ -153,11 +152,11 @@ func (m *metrics) onMetrics(w http.ResponseWriter, req *http.Request) {
 			}
 
 			out += formatMetric("rtsps_sessions{state=\"idle\"}",
-				idleCount, nowUnix)
+				idleCount)
 			out += formatMetric("rtsps_sessions{state=\"read\"}",
-				readCount, nowUnix)
+				readCount)
 			out += formatMetric("rtsps_sessions{state=\"publish\"}",
-				publishCount, nowUnix)
+				publishCount)
 		}
 	}
 
@@ -180,11 +179,11 @@ func (m *metrics) onMetrics(w http.ResponseWriter, req *http.Request) {
 			}
 
 			out += formatMetric("rtmp_conns{state=\"idle\"}",
-				idleCount, nowUnix)
+				idleCount)
 			out += formatMetric("rtmp_conns{state=\"read\"}",
-				readCount, nowUnix)
+				readCount)
 			out += formatMetric("rtmp_conns{state=\"publish\"}",
-				publishCount, nowUnix)
+				publishCount)
 		}
 	}
 
