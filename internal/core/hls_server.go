@@ -5,9 +5,12 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/http/httputil"
 	gopath "path"
 	"strings"
 	"sync"
+
+	"github.com/gin-gonic/gin"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
@@ -97,7 +100,10 @@ func (s *hlsServer) close() {
 func (s *hlsServer) run() {
 	defer s.wg.Done()
 
-	hs := &http.Server{Handler: s}
+	router := gin.New()
+	router.NoRoute(s.onRequest)
+
+	hs := &http.Server{Handler: router}
 	go hs.Serve(s.ln)
 
 outer:
@@ -130,33 +136,39 @@ outer:
 	s.pathManager.OnHLSServerSet(nil)
 }
 
-// ServeHTTP implements http.Handler.
-func (s *hlsServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	s.Log(logger.Info, "[conn %v] %s %s", r.RemoteAddr, r.Method, r.URL.Path)
+func (s *hlsServer) onRequest(ctx *gin.Context) {
+	s.Log(logger.Info, "[conn %v] %s %s", ctx.Request.RemoteAddr, ctx.Request.Method, ctx.Request.URL.Path)
 
-	// remove leading prefix
-	pa := r.URL.Path[1:]
+	byts, _ := httputil.DumpRequest(ctx.Request, true)
+	s.Log(logger.Debug, "[conn %v] [c->s] %s", ctx.Request.RemoteAddr, string(byts))
 
-	w.Header().Add("Access-Control-Allow-Origin", s.hlsAllowOrigin)
-	w.Header().Add("Access-Control-Allow-Credentials", "true")
+	logw := &httpLogWriter{ResponseWriter: ctx.Writer}
+	ctx.Writer = logw
 
-	switch r.Method {
+	ctx.Writer.Header().Set("Server", "rtsp-simple-server")
+	ctx.Writer.Header().Set("Access-Control-Allow-Origin", s.hlsAllowOrigin)
+	ctx.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+
+	switch ctx.Request.Method {
 	case http.MethodGet:
 
 	case http.MethodOptions:
-		w.Header().Add("Access-Control-Allow-Methods", "GET, OPTIONS")
-		w.Header().Add("Access-Control-Allow-Headers", r.Header.Get("Access-Control-Request-Headers"))
-		w.WriteHeader(http.StatusOK)
+		ctx.Writer.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+		ctx.Writer.Header().Set("Access-Control-Allow-Headers", ctx.Request.Header.Get("Access-Control-Request-Headers"))
+		ctx.Writer.WriteHeader(http.StatusOK)
 		return
 
 	default:
-		w.WriteHeader(http.StatusNotFound)
+		ctx.Writer.WriteHeader(http.StatusNotFound)
 		return
 	}
 
+	// remove leading prefix
+	pa := ctx.Request.URL.Path[1:]
+
 	switch pa {
 	case "", "favicon.ico":
-		w.WriteHeader(http.StatusNotFound)
+		ctx.Writer.WriteHeader(http.StatusNotFound)
 		return
 	}
 
@@ -168,31 +180,38 @@ func (s *hlsServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	if fname == "" && !strings.HasSuffix(dir, "/") {
-		w.Header().Add("Location", "/"+dir+"/")
-		w.WriteHeader(http.StatusMovedPermanently)
+		ctx.Writer.Header().Set("Location", "/"+dir+"/")
+		ctx.Writer.WriteHeader(http.StatusMovedPermanently)
 		return
 	}
 
 	dir = strings.TrimSuffix(dir, "/")
 
-	cres := make(chan io.Reader)
+	cres := make(chan hlsMuxerResponse)
 	hreq := hlsMuxerRequest{
 		Dir:  dir,
 		File: fname,
-		Req:  r,
-		W:    w,
+		Req:  ctx.Request,
 		Res:  cres,
 	}
 
 	select {
 	case s.request <- hreq:
 		res := <-cres
-		if res != nil {
-			io.Copy(w, res)
+
+		for k, v := range res.Header {
+			ctx.Writer.Header().Set(k, v)
+		}
+		ctx.Writer.WriteHeader(res.Status)
+
+		if res.Body != nil {
+			io.Copy(ctx.Writer, res.Body)
 		}
 
 	case <-s.ctx.Done():
 	}
+
+	s.Log(logger.Debug, "[conn %v] [s->c] %s", ctx.Request.RemoteAddr, logw.dump())
 }
 
 func (s *hlsServer) findOrCreateMuxer(pathName string) *hlsMuxer {
