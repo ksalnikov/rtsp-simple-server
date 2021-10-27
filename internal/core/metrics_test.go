@@ -66,8 +66,7 @@ func TestMetrics(t *testing.T) {
 	}
 
 	require.Equal(t, map[string]string{
-		"paths{state=\"notReady\"}":         "0",
-		"paths{state=\"ready\"}":            "2",
+		"paths{name=\"~^.*$\",":             "state=\"ready\"}",
 		"rtmp_conns{state=\"idle\"}":        "0",
 		"rtmp_conns{state=\"publish\"}":     "1",
 		"rtmp_conns{state=\"read\"}":        "0",
@@ -77,6 +76,5 @@ func TestMetrics(t *testing.T) {
 		"rtsps_sessions{state=\"idle\"}":    "0",
 		"rtsps_sessions{state=\"publish\"}": "0",
 		"rtsps_sessions{state=\"read\"}":    "0",
-		"path_state{path=\"~^.*$\"}":        "1",
 	}, vals)
 }
