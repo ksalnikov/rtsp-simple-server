@@ -418,8 +418,8 @@ wget -qO- localhost:9998/metrics
 Obtaining:
 
 ```
-paths{state="ready"} 2
-paths{state="notReady"} 0
+paths{name=<path_name>, state="ready"} 1
+paths{name=<path_name>, state="notReady"} 1
 rtsp_sessions{state="idle"} 0
 rtsp_sessions{state="read"} 0
 rtsp_sessions{state="publish"} 1
@@ -429,13 +429,12 @@ rtsps_sessions{state="publish"} 0
 rtmp_conns{state="idle"} 0
 rtmp_conns{state="read"} 0
 rtmp_conns{state="publish"} 1
-path_state{path="testpath"} 1
 ```
 
 where:
 
-* `paths{state="ready"}` is the count of paths that are ready
-* `paths{state="notReady"}` is the count of paths that are not ready
+* `paths{name=<path_name>, state="ready"} 1` is the metric for every path that shows path is alive
+* `paths{name=<path_name>, state="notReady"} 1` is the metric for every path that shows path is dead
 * `rtsp_sessions{state="idle"}` is the count of RTSP sessions that are idle
 * `rtsp_sessions{state="read"}` is the count of RTSP sessions that are reading
 * `rtsp_sessions{state="publish"}` is the counf ot RTSP sessions that are publishing
@@ -445,7 +444,6 @@ where:
 * `rtmp_conns{state="idle"}` is the count of RTMP connections that are idle
 * `rtmp_conns{state="read"}` is the count of RTMP connections that are reading
 * `rtmp_conns{state="publish"}` is the count of RTMP connections that are publishing
-* `path_state{path="testpath"}` is the metric for every path that shows if path is alive (1) or not (0)
 
 ### pprof
 
