@@ -87,23 +87,14 @@ func (m *metrics) onMetrics(w http.ResponseWriter, req *http.Request) {
 
 	res := m.pathManager.OnAPIPathsList(apiPathsListReq1{})
 	if res.Err == nil {
-		readyCount := int64(0)
-		notReadyCount := int64(0)
 
 		for _, p := range res.Data.Items {
 			if p.SourceReady {
-				out += formatMetric("path_state{path=\""+p.ConfName+"\"}", 1)
-				readyCount++
+				out += formatMetric("paths{name=\""+p.ConfName+"\", state=\"ready\"}", 1)
 			} else {
-				out += formatMetric("path_state{path=\""+p.ConfName+"\"}", 0)
-				notReadyCount++
+				out += formatMetric("paths{name=\""+p.ConfName+"\", state=\"notReady\"}", 1)
 			}
 		}
-
-		out += formatMetric("paths{state=\"ready\"}",
-			readyCount)
-		out += formatMetric("paths{state=\"notReady\"}",
-			notReadyCount)
 	}
 
 	if !interfaceIsEmpty(m.rtspServer) {
